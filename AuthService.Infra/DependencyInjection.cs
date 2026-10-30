@@ -1,0 +1,155 @@
+﻿using AuthService.Infra.Auth;
+using AuthService.Infra.RepoServices.Org;
+using AuthService.Infra.RepoServices.Users;
+using Azure.Core;
+using Azure.Identity;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Sinks.OpenTelemetry;
+
+namespace AuthService.Infra;
+
+public static class DependencyInjection
+{
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration)
+    {
+        services.AddDbContext<ApplicationDbContext>(options =>
+        {
+            options.UseNpgsql(
+                configuration.GetConnectionString("AuthDb"),
+                npgsqlOptions =>
+                {
+                    npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", ApplicationDbContext.Schema);
+                    npgsqlOptions.EnableRetryOnFailure(
+                        maxRetryCount: 5,
+                        maxRetryDelay: TimeSpan.FromSeconds(10),
+                        errorCodesToAdd: null);
+                });
+
+            if (configuration.GetValue<bool>("Logging:LogEfSql"))
+            {
+                options
+                    .EnableDetailedErrors()
+                    .EnableSensitiveDataLogging();
+            }
+        });
+
+        #region Jwt
+
+        services.AddOptions<JwtOptions>()
+            .Bind(configuration.GetSection(JwtOptions.SectionName))
+            .ValidateOnStart();
+
+        services.AddSingleton<TokenCredential>(new DefaultAzureCredential());
+        services.AddSingleton<SigningKeyProvider>();        
+        services.AddSingleton<ITokenService, TokenService>();
+
+        #endregion
+
+        // Users
+        services.AddScoped<IAppUserRepo, AppUserRepo>();
+        services.AddScoped<IAppRoleRepo, AppRoleRepo>();
+        services.AddScoped<IUserDetailsRepo, UserDetailsRepo>();
+        services.AddScoped<IUserAddressRepo, UserAddressRepo>();
+
+        // Org
+        services.AddScoped<IOrganizationRepo, OrganizationRepo>();
+        services.AddScoped<IOrgAddressRepo, OrgAddressRepo>();
+
+        return services;
+    }
+
+    public static void AddHostInfrastructure(
+    this IHostBuilder hostBuilder,
+    IConfiguration configuration)
+    {
+        var otlpEndpoint = configuration["Otlp:Endpoint"] ?? "http://localhost:4317";
+        var otlpProtocol = configuration["Otlp:Protocol"] ?? "grpc";
+        var otlpHeaders = configuration["Otlp:Headers"];
+        var serilogProtocol = otlpProtocol.Equals("http/protobuf", StringComparison.OrdinalIgnoreCase)
+            ? OtlpProtocol.HttpProtobuf
+            : OtlpProtocol.Grpc;
+
+        hostBuilder.UseSerilog((context, services, loggerConfiguration) =>
+        {
+            loggerConfiguration
+                .ReadFrom.Configuration(configuration)
+                .ReadFrom.Services(services);
+
+            if (context.HostingEnvironment.IsEnvironment("Local"))
+                return;
+
+            loggerConfiguration.WriteTo.OpenTelemetry(options =>
+            {
+                options.Endpoint = otlpEndpoint;
+                options.Protocol = serilogProtocol;
+                options.ResourceAttributes = new Dictionary<string, object>
+                {
+                    ["service.name"] = "AuthService.Api"
+                };
+                if (!string.IsNullOrEmpty(otlpHeaders))
+                {
+                    options.Headers = otlpHeaders
+                        .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(kv => kv.Split('=', 2))
+                        .ToDictionary(parts => parts[0].Trim(), parts => Uri.UnescapeDataString(parts[1].Trim()));
+                }
+            });
+        });
+    }
+
+    public static IServiceCollection AddObservability(
+    this IServiceCollection services,
+    IConfiguration configuration)
+    {
+        var otlpEndpoint = configuration["Otlp:Endpoint"] ?? "http://localhost:4317";
+        var otlpProtocol = configuration["Otlp:Protocol"] ?? "grpc";
+        var otlpHeaders = configuration["Otlp:Headers"];
+        var exportProtocol = otlpProtocol.Equals("http/protobuf", StringComparison.OrdinalIgnoreCase)
+            ? OtlpExportProtocol.HttpProtobuf
+            : OtlpExportProtocol.Grpc;
+
+        var tracesEndpoint = new Uri(configuration["Otlp:TracesEndpoint"] ?? otlpEndpoint);
+        var metricsEndpoint = new Uri(configuration["Otlp:MetricsEndpoint"] ?? otlpEndpoint);
+
+        void ConfigureTraceExporter(OtlpExporterOptions otlp)
+        {
+            otlp.Endpoint = tracesEndpoint;
+            otlp.Protocol = exportProtocol;
+            if (!string.IsNullOrEmpty(otlpHeaders))
+                otlp.Headers = otlpHeaders;
+        }
+
+        void ConfigureMetricExporter(OtlpExporterOptions otlp)
+        {
+            otlp.Endpoint = metricsEndpoint;
+            otlp.Protocol = exportProtocol;
+            if (!string.IsNullOrEmpty(otlpHeaders))
+                otlp.Headers = otlpHeaders;
+        }
+
+        services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName: "AuthService.Api"))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation(options =>
+                    options.Filter = httpContext => httpContext.Request.Path != "/")
+                .AddHttpClientInstrumentation()
+                .AddOtlpExporter(ConfigureTraceExporter))
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddRuntimeInstrumentation()
+                .AddOtlpExporter(ConfigureMetricExporter));
+
+        return services;
+    }
+}

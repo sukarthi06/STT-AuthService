@@ -1,0 +1,15 @@
+﻿global using AuthService.Domain.Entities.Org;
+global using AuthService.Domain.Entities.Users;
+global using AuthService.Domain.ValueObjects;
+global using Microsoft.EntityFrameworkCore;
+global using Microsoft.EntityFrameworkCore.Metadata.Builders;
+global using AuthService.Application.Repos.Users;
+global using System.Linq.Expressions;
+global using AuthService.Application.Repos.Org;
+global using AuthService.Domain.Enums;
+global using Microsoft.Extensions.Logging;
+global using System.Diagnostics;
+global using System.Text;
+global using System.Text.Json;
+global using AuthService.Application.Abstraction;
+global using Microsoft.Extensions.Options;

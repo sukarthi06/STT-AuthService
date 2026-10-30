@@ -1,0 +1,11 @@
+﻿global using FluentValidation;
+global using AuthService.Application.Dtos.Users;
+global using AuthService.Api.Handlers.Users;
+global using Microsoft.AspNetCore.Mvc;
+global using AuthService.Application.Mappers;
+global using AuthService.Application.Repos.Org;
+global using AuthService.Application.Repos.Users;
+global using AuthService.Domain.Entities.Org;
+global using AuthService.Domain.Entities.Users;
+global using AuthService.Domain.ValueObjects;
+global using Microsoft.AspNetCore.Identity;
