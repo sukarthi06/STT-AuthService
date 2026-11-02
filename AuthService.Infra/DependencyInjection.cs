@@ -59,6 +59,7 @@ public static class DependencyInjection
         services.AddScoped<IAppRoleRepo, AppRoleRepo>();
         services.AddScoped<IUserDetailsRepo, UserDetailsRepo>();
         services.AddScoped<IUserAddressRepo, UserAddressRepo>();
+        services.AddScoped<IRefreshTokenRepo, RefreshTokenRepo>();
 
         // Org
         services.AddScoped<IOrganizationRepo, OrganizationRepo>();

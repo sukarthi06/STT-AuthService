@@ -1,5 +1,6 @@
 ﻿using Azure.Security.KeyVault.Keys.Cryptography;
 using Microsoft.IdentityModel.Tokens;
+using System.Security.Cryptography;
 
 namespace AuthService.Infra.Auth;
 
@@ -51,4 +52,13 @@ public class TokenService(
 
     private static string Encode(object value) =>
         Base64UrlEncoder.Encode(JsonSerializer.SerializeToUtf8Bytes(value));
+
+    public RefreshTokenResult CreateRefreshToken()
+    {
+        var token = Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));   // 256-bit random
+        return new RefreshTokenResult(token, HashRefreshToken(token));
+    }
+
+    public string HashRefreshToken(string token) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
 }

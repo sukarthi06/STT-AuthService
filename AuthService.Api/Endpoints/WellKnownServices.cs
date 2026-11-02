@@ -28,14 +28,14 @@ public static class WellKnownServices
         return Results.Ok(new { keys });
     }
 
-    private static IResult GetDiscovery(IOptions<JwtOptions> options)
+    private static IResult GetDiscovery(IOptions<JwtOptions> options, HttpRequest request)
     {
-        var issuer = options.Value.Issuer.TrimEnd('/');
+        var baseUrl = $"{request.Scheme}://{request.Host}";
 
         return Results.Ok(new
         {
             issuer = options.Value.Issuer,
-            jwks_uri = $"{issuer}/.well-known/jwks.json",
+            jwks_uri = $"{baseUrl}/.well-known/jwks.json",
             id_token_signing_alg_values_supported = new[] { "RS256" }
         });
     }

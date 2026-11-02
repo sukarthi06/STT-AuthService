@@ -4,7 +4,7 @@ public static class AppUserServices
 {
     public static void MapAppUserServicesEndpoints(this WebApplication app)
     {
-        var serviceGroup = app.MapGroup("/api/userservice")
+        var serviceGroup = app.MapGroup("/api/user")
             .WithTags("App User Service Endpoints");
 
         serviceGroup.MapPost("/register", RegisterAsync)
@@ -14,6 +14,14 @@ public static class AppUserServices
             .Produces(StatusCodes.Status201Created)
             .ProducesValidationProblem()
             .Produces<string>(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status500InternalServerError);
+
+        serviceGroup.MapGet("/me", GetCurrentUserAsync)
+            .WithSummary("Gets the current user.")
+            .WithDescription("Returns the profile of the authenticated user.")
+            .Produces<UserResponseDto>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status500InternalServerError);
     }
 
@@ -30,6 +38,20 @@ public static class AppUserServices
         var userId = await handler.HandleAsync(registrationDto, ct);
         return userId is null
             ? Results.Conflict("Email already registered.")
-            : Results.Created($"/api/userservice/{userId.Value}", new { UserId = userId.Value });
+            : Results.Created($"/api/user/{userId.Value}", new { UserId = userId.Value });
+    }
+
+    private static async Task<IResult> GetCurrentUserAsync(
+    [FromHeader(Name = "X-User-Id")] string? userIdHeader,
+    GetUserHandler handler,
+    CancellationToken ct)
+    {
+        if (!Guid.TryParse(userIdHeader, out var id) || UserId.Empty(id))
+            return Results.Unauthorized();
+
+        var user = await handler.HandleAsync(UserId.Of(id), ct);
+        return user is null
+            ? Results.NotFound()
+            : Results.Ok(user);
     }
 }

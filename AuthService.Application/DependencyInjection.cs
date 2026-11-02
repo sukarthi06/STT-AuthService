@@ -14,7 +14,8 @@ public static class DependencyInjection
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
 
         // Mappers
-        services.AddSingleton<RegistrationMapper>();        
+        services.AddSingleton<RegistrationMapper>();
+        services.AddSingleton<UserMapper>();
 
         return services;
     }

@@ -29,12 +29,22 @@ public static class DependencyInjection
 
         #endregion
 
+        services.AddOptions<GatewayAuthOptions>()
+            .Bind(configuration.GetSection(GatewayAuthOptions.SectionName))
+            .Validate(o => !string.IsNullOrWhiteSpace(o.Secret), "GatewayAuth:Secret is missing.")
+            .Validate(o => !string.IsNullOrWhiteSpace(o.NextSecret), "GatewayAuth:NextSecret is missing.")
+            .ValidateOnStart();
+
         services.AddExceptionHandler<GlobalExceptionHandler>();
         services.AddProblemDetails();
 
         // Services
         services.AddScoped<RegistrationHandler>();
         services.AddScoped<LoginHandler>();
+        services.AddScoped<GetUserHandler>();
+        services.AddScoped<AuthSessionFactory>();
+        services.AddScoped<RefreshHandler>();
+        services.AddScoped<LogoutHandler>();
         return services;
     }
 }

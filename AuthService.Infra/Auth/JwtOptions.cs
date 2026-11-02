@@ -9,4 +9,6 @@ public class JwtOptions
     public int AccessTokenMinutes { get; set; } = 15;
     public string KeyVaultUri { get; set; } = default!;
     public string KeyName { get; set; } = default!;
+    public int RefreshTokenIdleMinutes { get; set; } = 30;
+    public int RefreshTokenAbsoluteHours { get; set; } = 8;
 }

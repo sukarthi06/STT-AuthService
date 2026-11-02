@@ -18,6 +18,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<OrganizationDept> OrganizationDepts { get; set; } = default!;
     public DbSet<OrganizationRole> OrganizationRoles { get; set; } = default!;
     public DbSet<OrgUserRole> OrgUserRoles { get; set; } = default!;
+    public DbSet<RefreshToken> RefreshTokens { get; set; } = default!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
