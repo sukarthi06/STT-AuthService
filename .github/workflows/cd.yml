@@ -119,6 +119,7 @@ jobs:
             --set-env-vars \
               "ASPNETCORE_ENVIRONMENT=UAT" \
               "DOTNET_ENVIRONMENT=UAT" \
+              "ASPNETCORE_FORWARDEDHEADERS_ENABLED=true" \
               "ConnectionStrings__AuthDb=secretref:authdb-connection-string" \
               "Jwt__Issuer=$JWT_ISSUER" \
               "Jwt__KeyVaultUri=$KEY_VAULT_URI" \
